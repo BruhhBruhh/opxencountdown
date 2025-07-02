@@ -394,30 +394,11 @@
         </div>
     </div>
 
-    <!-- Wagmi and Viem via CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/viem/2.21.1/index.global.min.js"></script>
-    <script type="module">
-        // Import wagmi functions (we'll use viem directly for simplicity)
-        const { createPublicClient, http, formatUnits } = window.viem;
-
-        // Optimism chain configuration
-        const optimism = {
-            id: 10,
-            name: 'Optimism',
-            network: 'optimism',
-            nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-            rpcUrls: {
-                default: { http: ['https://opt-mainnet.g.alchemy.com/v2/8dASJbrbZeVybFKSf3HWqgLu3uFhskOL'] },
-                public: { http: ['https://mainnet.optimism.io'] }
-            }
-        };
-
-        // Create public client
-        const publicClient = createPublicClient({
-            chain: optimism,
-            transport: http('https://opt-mainnet.g.alchemy.com/v2/8dASJbrbZeVybFKSf3HWqgLu3uFhskOL')
-        });
-
+    <!-- Web3 via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/4.11.1/web3.min.js"></script>
+    <script>
+        // Web3 setup
+        const web3 = new Web3('https://opt-mainnet.g.alchemy.com/v2/8dASJbrbZeVybFKSf3HWqgLu3uFhskOL');
         const opXenAddress = '0xfdf64c32f4a03923547e6061911483b793e8d7e2';
 
         // ABI for the functions we need
@@ -459,6 +440,9 @@
             }
         ];
 
+        // Create contract instance
+        const opXenContract = new web3.eth.Contract(opXenAbi, opXenAddress);
+
         // Countdown functionality
         const finalDate = new Date('2025-12-02T00:52:31Z');
         
@@ -491,48 +475,28 @@
                 document.getElementById('connectionStatus').innerHTML = '🔗 Connected to Optimism';
                 document.getElementById('connectionStatus').className = 'connection-status connected';
 
-                // Fetch all contract data in parallel
+                // Fetch all contract data
                 const [totalSupply, globalRank, activeMinters, currentMaxTerm, currentAMP] = await Promise.all([
-                    publicClient.readContract({
-                        address: opXenAddress,
-                        abi: opXenAbi,
-                        functionName: 'totalSupply'
-                    }),
-                    publicClient.readContract({
-                        address: opXenAddress,
-                        abi: opXenAbi,
-                        functionName: 'globalRank'
-                    }),
-                    publicClient.readContract({
-                        address: opXenAddress,
-                        abi: opXenAbi,
-                        functionName: 'activeMinters'
-                    }),
-                    publicClient.readContract({
-                        address: opXenAddress,
-                        abi: opXenAbi,
-                        functionName: 'getCurrentMaxTerm'
-                    }),
-                    publicClient.readContract({
-                        address: opXenAddress,
-                        abi: opXenAbi,
-                        functionName: 'getCurrentAMP'
-                    })
+                    opXenContract.methods.totalSupply().call(),
+                    opXenContract.methods.globalRank().call(),
+                    opXenContract.methods.activeMinters().call(),
+                    opXenContract.methods.getCurrentMaxTerm().call(),
+                    opXenContract.methods.getCurrentAMP().call()
                 ]);
 
                 // Update UI with blockchain data
-                const totalSupplyFormatted = formatUnits(totalSupply, 18);
+                const totalSupplyFormatted = web3.utils.fromWei(totalSupply, 'ether');
                 const totalSupplyNum = parseFloat(totalSupplyFormatted);
                 document.getElementById('totalSupply').textContent = 
                     totalSupplyNum > 1000000 ? 
                     `${(totalSupplyNum / 1000000).toFixed(2)}M` : 
                     totalSupplyNum.toLocaleString();
 
-                document.getElementById('globalRank').textContent = globalRank.toLocaleString();
-                document.getElementById('activeMinters').textContent = activeMinters.toLocaleString();
+                document.getElementById('globalRank').textContent = parseInt(globalRank).toLocaleString();
+                document.getElementById('activeMinters').textContent = parseInt(activeMinters).toLocaleString();
                 
                 // Convert seconds to days for max term
-                const maxTermDays = Math.floor(Number(currentMaxTerm) / (24 * 60 * 60));
+                const maxTermDays = Math.floor(parseInt(currentMaxTerm) / (24 * 60 * 60));
                 document.getElementById('currentMaxTerm').textContent = `${maxTermDays} days`;
                 
                 document.getElementById('currentAMP').textContent = currentAMP.toString();
@@ -544,8 +508,11 @@
                 
                 // Set error states
                 ['totalSupply', 'globalRank', 'activeMinters', 'currentMaxTerm', 'currentAMP'].forEach(id => {
-                    document.getElementById(id).textContent = 'Error';
-                    document.getElementById(id).className = 'error';
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.textContent = 'Error';
+                        element.className = 'error';
+                    }
                 });
             }
         }
