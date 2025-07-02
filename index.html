@@ -234,6 +234,26 @@
             color: #ff6666;
         }
 
+        .connection-status {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(128, 128, 128, 0.3);
+            border-radius: 10px;
+            padding: 1rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+
+        .connected {
+            border-color: rgba(0, 255, 0, 0.3);
+            color: #00ff00;
+        }
+
+        .disconnected {
+            border-color: rgba(255, 255, 0, 0.3);
+            color: #ffff00;
+        }
+
         .footer {
             text-align: center;
             color: #666666;
@@ -263,19 +283,6 @@
             }
         }
 
-        @media (max-width: 480px) {
-            .digital-clock {
-                grid-template-columns: repeat(2, 1fr);
-                display: grid;
-            }
-            
-            .digits {
-                font-size: 2rem;
-                padding: 0.6rem 0.8rem;
-                min-width: 70px;
-            }
-        }
-
         .blink {
             animation: blink 1s infinite;
         }
@@ -291,6 +298,10 @@
         <div class="header">
             <div class="logo">opXEN</div>
             <div class="subtitle">XEN Crypto Ecosystem • Optimism Chain</div>
+        </div>
+
+        <div class="connection-status" id="connectionStatus">
+            🔗 Connecting to Optimism network...
         </div>
 
         <div class="status-banner">
@@ -339,9 +350,15 @@
                 </div>
 
                 <div class="stat-card">
-                    <div class="stat-title">Market Cap</div>
-                    <div class="stat-value" id="marketCap">Loading...</div>
-                    <div class="stat-subtitle">USD value</div>
+                    <div class="stat-title">Global Rank</div>
+                    <div class="stat-value" id="globalRank">Loading...</div>
+                    <div class="stat-subtitle">Current gRANK</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-title">Active Minters</div>
+                    <div class="stat-value" id="activeMinters">Loading...</div>
+                    <div class="stat-subtitle">Current claims</div>
                 </div>
             </div>
         </div>
@@ -360,24 +377,88 @@
             </div>
             
             <div class="info-card">
-                <div class="info-title">gRANK at AMP=1</div>
-                <div class="info-value">157,705,017</div>
-                <div class="info-description">Global rank when amplifier minimized</div>
+                <div class="info-title">Max Term</div>
+                <div class="stat-value" id="currentMaxTerm">Loading...</div>
+                <div class="info-description">Current maximum mint duration</div>
             </div>
             
             <div class="info-card">
-                <div class="info-title">Max Term</div>
-                <div class="info-value">508 Days</div>
-                <div class="info-description">Maximum mint duration at AMP=1</div>
+                <div class="info-title">Current AMP</div>
+                <div class="stat-value" id="currentAMP">Loading...</div>
+                <div class="info-description">Current reward amplifier</div>
             </div>
         </div>
 
         <div class="footer">
-            Data from DexScreener • RPC: Alchemy Optimism • Contract: 0xfdf64c32f4a03923547e6061911483b793e8d7e2
+            Powered by Wagmi + Viem • Contract: 0xfdf64c32f4a03923547e6061911483b793e8d7e2
         </div>
     </div>
 
-    <script>
+    <!-- Wagmi and Viem via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/viem/2.21.1/index.global.min.js"></script>
+    <script type="module">
+        // Import wagmi functions (we'll use viem directly for simplicity)
+        const { createPublicClient, http, formatUnits } = window.viem;
+
+        // Optimism chain configuration
+        const optimism = {
+            id: 10,
+            name: 'Optimism',
+            network: 'optimism',
+            nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+            rpcUrls: {
+                default: { http: ['https://opt-mainnet.g.alchemy.com/v2/8dASJbrbZeVybFKSf3HWqgLu3uFhskOL'] },
+                public: { http: ['https://mainnet.optimism.io'] }
+            }
+        };
+
+        // Create public client
+        const publicClient = createPublicClient({
+            chain: optimism,
+            transport: http('https://opt-mainnet.g.alchemy.com/v2/8dASJbrbZeVybFKSf3HWqgLu3uFhskOL')
+        });
+
+        const opXenAddress = '0xfdf64c32f4a03923547e6061911483b793e8d7e2';
+
+        // ABI for the functions we need
+        const opXenAbi = [
+            {
+                "inputs": [],
+                "name": "totalSupply",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "globalRank",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "activeMinters",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "getCurrentMaxTerm",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "getCurrentAMP",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+
         // Countdown functionality
         const finalDate = new Date('2025-12-02T00:52:31Z');
         
@@ -404,7 +485,72 @@
             document.getElementById('seconds').textContent = seconds.toString().padStart(2, '0');
         }
 
-        // Price and supply data
+        // Fetch blockchain data
+        async function fetchBlockchainData() {
+            try {
+                document.getElementById('connectionStatus').innerHTML = '🔗 Connected to Optimism';
+                document.getElementById('connectionStatus').className = 'connection-status connected';
+
+                // Fetch all contract data in parallel
+                const [totalSupply, globalRank, activeMinters, currentMaxTerm, currentAMP] = await Promise.all([
+                    publicClient.readContract({
+                        address: opXenAddress,
+                        abi: opXenAbi,
+                        functionName: 'totalSupply'
+                    }),
+                    publicClient.readContract({
+                        address: opXenAddress,
+                        abi: opXenAbi,
+                        functionName: 'globalRank'
+                    }),
+                    publicClient.readContract({
+                        address: opXenAddress,
+                        abi: opXenAbi,
+                        functionName: 'activeMinters'
+                    }),
+                    publicClient.readContract({
+                        address: opXenAddress,
+                        abi: opXenAbi,
+                        functionName: 'getCurrentMaxTerm'
+                    }),
+                    publicClient.readContract({
+                        address: opXenAddress,
+                        abi: opXenAbi,
+                        functionName: 'getCurrentAMP'
+                    })
+                ]);
+
+                // Update UI with blockchain data
+                const totalSupplyFormatted = formatUnits(totalSupply, 18);
+                const totalSupplyNum = parseFloat(totalSupplyFormatted);
+                document.getElementById('totalSupply').textContent = 
+                    totalSupplyNum > 1000000 ? 
+                    `${(totalSupplyNum / 1000000).toFixed(2)}M` : 
+                    totalSupplyNum.toLocaleString();
+
+                document.getElementById('globalRank').textContent = globalRank.toLocaleString();
+                document.getElementById('activeMinters').textContent = activeMinters.toLocaleString();
+                
+                // Convert seconds to days for max term
+                const maxTermDays = Math.floor(Number(currentMaxTerm) / (24 * 60 * 60));
+                document.getElementById('currentMaxTerm').textContent = `${maxTermDays} days`;
+                
+                document.getElementById('currentAMP').textContent = currentAMP.toString();
+
+            } catch (error) {
+                console.error('Error fetching blockchain data:', error);
+                document.getElementById('connectionStatus').innerHTML = '⚠️ Connection failed - Retrying...';
+                document.getElementById('connectionStatus').className = 'connection-status disconnected';
+                
+                // Set error states
+                ['totalSupply', 'globalRank', 'activeMinters', 'currentMaxTerm', 'currentAMP'].forEach(id => {
+                    document.getElementById(id).textContent = 'Error';
+                    document.getElementById(id).className = 'error';
+                });
+            }
+        }
+
+        // Fetch price data from DexScreener
         async function fetchPriceData() {
             try {
                 const response = await fetch('https://api.dexscreener.com/latest/dex/pairs/optimism/0xfdf64c32f4a03923547e6061911483b793e8d7e2');
@@ -414,7 +560,6 @@
                     const pair = data.pairs[0];
                     const price = parseFloat(pair.priceUsd);
                     const change24h = parseFloat(pair.priceChange?.h24 || 0);
-                    const marketCap = pair.marketCap;
                     
                     document.getElementById('price').textContent = price < 0.001 ? 
                         `$${price.toExponential(2)}` : 
@@ -424,11 +569,6 @@
                     const changeText = `${change24h > 0 ? '+' : ''}${change24h.toFixed(2)}%`;
                     changeElement.textContent = changeText;
                     changeElement.style.color = change24h >= 0 ? '#00ff00' : '#ff6666';
-                    
-                    if (marketCap) {
-                        document.getElementById('marketCap').textContent = 
-                            marketCap > 1000000 ? `$${(marketCap / 1000000).toFixed(2)}M` : `$${marketCap.toLocaleString()}`;
-                    }
                 }
             } catch (error) {
                 console.error('Error fetching price data:', error);
@@ -437,52 +577,15 @@
             }
         }
 
-        async function fetchSupplyData() {
-            try {
-                const response = await fetch('https://opt-mainnet.g.alchemy.com/v2/8dASJbrbZeVybFKSf3HWqgLu3uFhskOL', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        jsonrpc: '2.0',
-                        method: 'eth_call',
-                        params: [
-                            {
-                                to: '0xfdf64c32f4a03923547e6061911483b793e8d7e2',
-                                data: '0x18160ddd' // totalSupply() function signature
-                            },
-                            'latest'
-                        ],
-                        id: 1
-                    })
-                });
-                
-                const data = await response.json();
-                if (data.result) {
-                    // Convert hex to decimal and adjust for 18 decimals
-                    const totalSupply = parseInt(data.result, 16) / Math.pow(10, 18);
-                    document.getElementById('totalSupply').textContent = 
-                        totalSupply > 1000000 ? 
-                        `${(totalSupply / 1000000).toFixed(2)}M` : 
-                        totalSupply.toLocaleString();
-                }
-            } catch (error) {
-                console.error('Error fetching supply data:', error);
-                document.getElementById('totalSupply').textContent = 'Error';
-                document.getElementById('totalSupply').className = 'error';
-            }
-        }
-
-        // Initialize
+        // Initialize everything
         updateCountdown();
+        fetchBlockchainData();
         fetchPriceData();
-        fetchSupplyData();
         
-        // Update intervals
+        // Set up intervals
         setInterval(updateCountdown, 1000);
+        setInterval(fetchBlockchainData, 30000); // Update blockchain data every 30 seconds
         setInterval(fetchPriceData, 30000); // Update price every 30 seconds
-        setInterval(fetchSupplyData, 60000); // Update supply every minute
     </script>
 </body>
 </html>
